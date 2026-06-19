@@ -38,3 +38,59 @@ Two method in embedding class
  - one embedd_query
 
 Seperate chunk_store, doc_store, vector_store (swappable).
+ - we need positon in chunk mapping -> better for LLM generation when we retrive topk elements
+
+No ORM objects leaving the session - problem with detached objects
+ - we return DTOs
+ - extra mapping ORM -> DTO 
+
+
+init_db()
+ - will have privileges problems with the pgvector extension the moment it leaves container 
+ - create_all - doesn't track schema changes - if add column etc. doesn't change the tables
+ - for dev - drop and recreate
+
+doc_metadata in Document is a dict of `str` and `Any`, the key always has to be `str`
+
+No vector index for fast top-k retrieval search, deferred
+ - brute force for now - implement later
+
+Deffered:
+1. ANN index (HNSW/ivfflat) 
+  - search is brute-force (sequential scan + cosine_distance ORDER BY) 
+  - add an index when row counts and query latency justify the build/tuning cost.
+2. create_all → Alembic
+  - create_all only creates missing tables; it never ALTERs an existing one
+  - model change silently leaves the live table on the old schema. 
+  - Dev workaround = drop + recreate
+3. pgvector extension privileges
+  - CREATE EXTENSION needs a privileged role
+  - fine in local container
+  - deployment time concern - must be pre-enbaled / a priviliged role
+4. Cross-encoder reranking of top-k
+  - v1 - bi-encoder retrieval only for now
+5. Orphan chunks — accepted
+  - no reconciliation / cleanup job
+  - orphan vectors - prevented in store-orchestration (not yet implemented)
+6. Abstract VectorStore/Embedder Protocol for the ChromaDB swap 
+  - right now the seam is concrete classes with compatible shapes, not a formal interface. 
+  - the chunk_vectors→chunks FK is pgvector-only and won't port to Chroma
+7. The whole HTTP + generation layer — FastAPI ingest/query endpoints and the LLM API client. Plus created_at/audit columns. 
+   and the broader out-of-scope set for v1: auth, streaming, multiple collections.
+
+
+=========v1 implementation (CC plumbing)==============
+
+- Vector model PK renamed id -> chunk_id (matches "(chunk_id, vector)"); one vector per chunk.
+- stored_vectors keeps a FK -> stored_chunks(chunk_id) ON DELETE CASCADE. NOTE: this FK is
+  pgvector-only — it couples the store to Postgres and will NOT carry over to a ChromaDB store.
+  It buys referential integrity + cascade deletes, not the search() return shape.
+- Chunk: position (int) + UniqueConstraint(document_id, position).
+- Document: JSONB metadata column (ORM attribute doc_metadata; 'metadata' is reserved by SQLAlchemy's
+  declarative registry). Raw document still stored as a filesystem path.
+- pgvector column dimension from one config value EMBED_DIM=384 -> single source of truth.
+- Stores accept/return DTOs (DocumentDTO, ChunkDTO)/primitives, never ORM objects.
+- One shared async engine + async_sessionmaker(expire_on_commit=False); DB creds from .env (DATABASE_URL).
+- init_db(): CREATE EXTENSION vector + metadata.create_all. Alembic deferred.
+
+- Deferred: ANN index (ivfflat/hnsw), abstract VectorStore/Embedder Protocols, created_at, FastAPI endpoint.//
