@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     embed_device: str = "cpu"
     embed_batch_size: int = 32
 
+    max_chunk_size: int = 254
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:

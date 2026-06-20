@@ -50,3 +50,10 @@ class DocStore:
                 raise ValueError(f"Document {id} doesn't exist")
             await session.delete(doc)
             await session.commit()
+
+    async def exists(self, id: UUID) -> bool:
+        async with self._session_factory() as session:
+            doc = await session.get(Document, id)
+            if doc is None:
+                return False
+            return True

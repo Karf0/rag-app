@@ -55,6 +55,10 @@ doc_metadata in Document is a dict of `str` and `Any`, the key always has to be 
 No vector index for fast top-k retrieval search, deferred
  - brute force for now - implement later
 
+In pyproject.toml we have lower_bound >= for the packages -> if a future package changes something we won't work
+for future pin with lockfile
+
+
 Deffered:
 1. ANN index (HNSW/ivfflat) 
   - search is brute-force (sequential scan + cosine_distance ORDER BY) 
@@ -94,3 +98,11 @@ Deffered:
 - init_db(): CREATE EXTENSION vector + metadata.create_all. Alembic deferred.
 
 - Deferred: ANN index (ivfflat/hnsw), abstract VectorStore/Embedder Protocols, created_at, FastAPI endpoint.//
+
+
+
+
+
+Store Orchestrator
+ - when inserting a document the embedder blocks the whole event loop - we accept that in v1
+ - deffered: asyncio.to_thread
