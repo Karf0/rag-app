@@ -24,6 +24,25 @@ class Embedder:
     def dimension(self) -> int | None:
         return self.model.get_embedding_dimension()
 
+    # The chunker tokenizes with the *same* tokenizer used here, so ingest/query stay in one
+    # token space. Expose it (and the usable token budget) instead of letting callers reach
+    # into self.model — keeps the SentenceTransformer behind this seam.
+    @property
+    def tokenizer(self):
+        return self.model.tokenizer
+
+    @property
+    def max_content_tokens(self) -> int:
+        # max_seq_length is the model's hard ceiling; the embedder will add special tokens
+        # ([CLS]/[SEP]) at encode time, so the room left for real content is that minus the
+        # special-token budget. num_special_tokens_to_add() keeps this model-agnostic.
+        max_seq = self.model.max_seq_length
+        if max_seq is None:
+            raise ValueError(
+                f"Model {self.model} has no max_seq_length; cannot derive a chunk size."
+            )
+        return max_seq - self.model.tokenizer.num_special_tokens_to_add()
+
     # The embed_document / embed_query split and the encode_* calls are the human's
     # core-logic decision (ingest/query symmetry). batch_size here is plumbing only and
     # does not change which vectors come out.

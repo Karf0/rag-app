@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     embed_device: str = "cpu"
     embed_batch_size: int = 32
 
-    max_chunk_size: int = 254
+    # Chunking. chunk_size is the desired token window; None means "use the model's full
+    # content window" (max_content_tokens). An explicit value is validated against that ceiling
+    # in build_chunker, so we never assume a specific model's limit here.
+    chunk_size: int | None = None
+    chunk_overlap_ratio: float = 0.12
+
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:

@@ -25,7 +25,7 @@ class IngestionService:
         # guards
         if not isfile(document.path_raw_content):
             raise ValueError(f"{document.path_raw_content} isn't a valid path to document")
-        if self.doc_store.exists(document.id):
+        if await self.doc_store.exists(document.id):
             return
         async with aiofiles.open(document.path_raw_content, mode='r') as f:
             doc_content = await f.read()
@@ -42,7 +42,7 @@ class IngestionService:
         # create vectors - here just list of str 
         vectors = self.embedder.embed_document(chunks) 
         # store vectors - expects tuple(id, Embedding)
-        await self.vec_store.add_vectors([(ch.id, vector) for ch, vector in zip(chunk_dtos, vectors)])
+        await self.vec_store.add_vectors([(ch.id, vector) for ch, vector in zip(chunk_dtos, vectors, strict=True)])
     async def get_document_content(self, id: UUID) -> str:
         return await self.doc_store.get_document_content(id)
     

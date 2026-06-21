@@ -1,5 +1,5 @@
 from rag_app.embeddings.embedder import Embedder
-from rag_app.chunkings.chunker import Chunker
+from rag_app.chunkings.factory import build_chunker
 
 
 def main():
@@ -21,11 +21,7 @@ def main():
     So, corrected version of your sentence: "For ingest, I have one concrete service that holds the chunker, embedder, and both store interfaces, gets them injected, and runs the sequence. Query is a separate service."
     Two questions before you draft it:"""
     emb = Embedder()
-    max_len = emb.model.max_seq_length
-    if max_len is None:
-        raise ValueError()
-    max_len -= 2
-    chunker = Chunker(emb.model.tokenizer, max_len,  round(max_len * 0.12))
+    chunker = build_chunker(emb)
     chunks = chunker.chunk_text(text)
     for i, ch in enumerate(chunks):
         print(f"Chunk {i}, chunk token len {len(chunker.tokenizer.encode(ch))}: \n{ch} ")
