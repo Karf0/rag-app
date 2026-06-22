@@ -103,6 +103,22 @@ Deffered:
 
 
 
-Store Orchestrator
+Store Orchestrator - Ingestion Service
  - when inserting a document the embedder blocks the whole event loop - we accept that in v1
  - deffered: asyncio.to_thread
+
+
+Retrieval Service
+ - deffered: threshold to searchk - filter, re-rank with cross-encoder
+
+Prompt Builder
+ - no citations for v1
+
+LLM Client
+ - for v1 we use Gemini's free tier Flash 2.5 for fast answers and free tier for development
+ - the client is swappable
+ - we prompt the LLM through httpx without taking another dependency on anthropic / openai... package
+ - the free tier uses the queries for training - for v1 fine
+ - we use AsyncClient for the session pools because we do the same https call over and over again 
+ - AsyncClient is injected - expensive, more testable, follows the projects architecture
+ - not owned by LLMClient, owned by caller

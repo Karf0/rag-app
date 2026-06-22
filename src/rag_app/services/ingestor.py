@@ -46,8 +46,4 @@ class IngestionService:
     async def get_document_content(self, id: UUID) -> str:
         return await self.doc_store.get_document_content(id)
     
-    # will be in QueryService
-    async def search_topk_chunks(self, q_vector: Embedding, k: int) -> list[str]:
-        k_vectors = await self.vec_store.search(q_vector, k)
-        k_chunks = await self.chunk_store.get_chunks_by_ids([ch_id for ch_id, _ in k_vectors])
-        return [ch.content for ch in k_chunks]
+    

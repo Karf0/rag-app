@@ -29,6 +29,18 @@ class Settings(BaseSettings):
     chunk_size: int | None = None
     chunk_overlap_ratio: float = 0.12
 
+    # Retrieval. Default number of top chunks fetched for a query when the caller doesn't specify.
+    retrieval_top_k: int = 5
+
+    # LLM (generation). Endpoint is base_url + model so the model can be swapped without rewriting a
+    # full URL. llm_api_key is required only when actually calling the LLM (like db_password for the
+    # DB), so modules that don't generate still import. llm_timeout: httpx defaults to 5s, far too
+    # short for generation.
+    llm_api_key: str | None = None
+    llm_model: str = "gemini-2.5-flash"
+    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
+    llm_timeout: float = 60.0
+
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:
