@@ -21,14 +21,21 @@ class FakeTokenizer:
     "w01 w02 ... w40" -> 40 tokens, one per word, which lets a test count
     windows/overlap by eye. Empty / whitespace-only text -> no tokens, so
     offset_mapping is [] (and Chunker.chunk_text returns []).
+
+    Like a real HF tokenizer, `input_ids` is always present; `offset_mapping`
+    only when explicitly requested. Chunker reads offset_mapping;
+    RetrievalService.search_topk_chunks reads input_ids for its length check.
     """
 
     # Chunker rejects slow tokenizers up front (return_offsets_mapping needs a fast one).
     is_fast = True
 
-    def __call__(self, text: str, return_offsets_mapping: bool = True, add_special_tokens: bool = False) -> dict[str, list[tuple[int, int]]]:
-        offsets = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
-        return {"offset_mapping": offsets}
+    def __call__(self, text: str, return_offsets_mapping: bool = False, add_special_tokens: bool = False) -> dict[str, list]:
+        spans = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
+        out: dict[str, list] = {"input_ids": list(range(len(spans)))}
+        if return_offsets_mapping:
+            out["offset_mapping"] = spans
+        return out
 
     def num_special_tokens_to_add(self, pair: bool = False) -> int:
         # Mirrors a BERT-style tokenizer ([CLS] + [SEP]); only here for fidelity,

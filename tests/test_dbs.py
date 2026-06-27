@@ -1,5 +1,6 @@
 import pytest
 from rag_app.schemas import DocumentDTO, ChunkDTO
+from rag_app.stores.document_store import get_file_content_from_path
 from uuid import uuid4
 
 
@@ -60,7 +61,7 @@ async def test_chunk_store_roundtrip_by_ids(chunk_store, doc_store, session, new
         assert ch.id == ch_ids[i]
         assert ch.document_id == doc.id
         assert ch.content == chunks[i].content
-        assert 0 <= ch.position < 6
+        assert ch.position == i
 
 async def test_chunk_store_roundtrip_by_doc_id(chunk_store, doc_store, new_session, session, db_tests):
     doc = DocumentDTO(uuid4(),"file1.txt", "/route/to/the/file", "0123456789abcdef", {"creator": "assasino", "size": 100})
@@ -75,7 +76,7 @@ async def test_chunk_store_roundtrip_by_doc_id(chunk_store, doc_store, new_sessi
         assert ch.id == ch_ids[i]
         assert ch.document_id == doc.id
         assert ch.content == chunks[i].content
-        assert 0 <= ch.position < 6
+        assert ch.position == i
 
 
 
@@ -159,11 +160,12 @@ async def test_vec_store_search(vector_store, doc_store, chunk_store, fake_embed
     query[0] = 1
     async with new_session() as s2:
         found_k = await vector_store.search(s2, query, 5)
-    assert (ch_ids[0], pytest.approx(0.0)) == found_k[0]
-    assert (ch_ids[1], pytest.approx(1.0)) == found_k[1]
-    assert (ch_ids[2], pytest.approx(1.0)) == found_k[2]
-    assert (ch_ids[3], pytest.approx(1.0)) == found_k[3]
-    assert (ch_ids[4], pytest.approx(1.0)) == found_k[4]
+    # Only the nearest (query == ch_ids[0]) is unambiguously ordered; ch_ids[1..4] all tie at
+    # cosine_distance 1.0 (orthogonal basis vectors) and search has no secondary sort key, so
+    # their relative order is not guaranteed. Assert the head exactly and the tied tail as a set.
+    assert found_k[0] == (ch_ids[0], pytest.approx(0.0))
+    assert {ch_id for ch_id, _ in found_k[1:]} == {ch_ids[1], ch_ids[2], ch_ids[3], ch_ids[4]}
+    assert all(dist == pytest.approx(1.0) for _, dist in found_k[1:])
 
 
 async def test_vec_store_search_bad_k(vector_store, session, db_tests, settings_session):
@@ -188,9 +190,47 @@ async def test_vec_store_search_k_bigger_than_db_records(vector_store, doc_store
     query[0] = 1
     async with new_session() as s2:
         found_k = await vector_store.search(s2, query, 10)
-    
-    assert (ch_ids[0], pytest.approx(0.0)) == found_k[0]
-    assert (ch_ids[1], pytest.approx(1.0)) == found_k[1]
-    assert (ch_ids[2], pytest.approx(1.0)) == found_k[2]
-    assert (ch_ids[3], pytest.approx(1.0)) == found_k[3]
-    assert (ch_ids[4], pytest.approx(1.0)) == found_k[4]
+
+    # Only 5 vectors exist, so k=10 returns 5. Same tie caveat as test_vec_store_search: the head
+    # is deterministic, the four distance-1.0 results are not ordered among themselves.
+    assert len(found_k) == 5
+    assert found_k[0] == (ch_ids[0], pytest.approx(0.0))
+    assert {ch_id for ch_id, _ in found_k[1:]} == {ch_ids[1], ch_ids[2], ch_ids[3], ch_ids[4]}
+    assert all(dist == pytest.approx(1.0) for _, dist in found_k[1:])
+
+
+# --- DocStore file helper + delete cascade (no model load) ---------------------
+
+async def test_get_file_content_from_path_reads(tmp_path):
+    f = tmp_path / "c.txt"
+    f.write_text("hello content")
+    assert await get_file_content_from_path(str(f)) == "hello content"
+
+
+async def test_get_file_content_from_path_missing(tmp_path):
+    with pytest.raises(OSError):
+        await get_file_content_from_path(str(tmp_path / "nope.txt"))
+
+
+async def test_doc_store_remove_cascades_to_chunks_and_vectors(
+    doc_store, chunk_store, vector_store, fake_embedder, session, new_session, db_tests
+):
+    # FK ON DELETE CASCADE (+ passive_deletes) means deleting the document removes its chunks, and
+    # in turn their vectors, at the DB level.
+    doc = DocumentDTO(uuid4(), "file1.txt", "/route/to/the/file", "hash-cascade", {})
+    await doc_store.add_document(session, doc)
+    ch_ids = [uuid4() for _ in range(2)]
+    chunks = [ChunkDTO(ch_ids[0], "abc", doc.id, 0), ChunkDTO(ch_ids[1], "def", doc.id, 1)]
+    await chunk_store.add_chunks(session, chunks)
+    vec = fake_embedder.embed_document([chunks[0].content])[0]
+    await vector_store.add_vector(session, ch_ids[0], vec)
+    await session.commit()
+
+    await doc_store.remove_document(session, doc.id)
+    await session.commit()
+
+    async with new_session() as s2:
+        with pytest.raises(ValueError):
+            await chunk_store.get_chunks_by_document(s2, doc.id)
+        with pytest.raises(ValueError):
+            await vector_store.get_vector_values_by_chunk_id(s2, ch_ids[0])

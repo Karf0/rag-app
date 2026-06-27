@@ -16,11 +16,12 @@ def make_handler(body: dict, status: int = 200):
         return httpx.Response(status, json=body)
     return handler
 
-async def test_no_found_chunks(make_llm_client):
-    body = gemini_blocked()
-    llm = make_llm_client(make_handler)
-    with pytest.raises((KeyError, IndexError, TypeError)):
-        resp = await llm.generate("...")
+async def test_blocked_response_raises(make_llm_client):
+    # A 200 with no usable candidate (safety block / empty) must surface as the legible
+    # RuntimeError that LLMClient._extract_text re-raises, not the raw KeyError/IndexError.
+    llm = make_llm_client(make_handler(gemini_blocked()))
+    with pytest.raises(RuntimeError):
+        await llm.generate("...")
 
 async def test_correct_answer(make_llm_client):
     body = gemini_response("Generated correct output for the given input")

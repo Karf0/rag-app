@@ -21,6 +21,6 @@ class AnswerService:
             k = get_settings().retrieval_top_k
         top_k = await self.retriever.search_topk_chunks(query, k)
         if not top_k:
-            return "There is not enough context to generate a good answer"
+            return "There is not enough context to generate a good answer."
         prompt = build_prompt(query, top_k)
         return await self.llm_client.generate(prompt)
