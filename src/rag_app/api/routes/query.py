@@ -5,8 +5,8 @@ from typing import Annotated
 from pydantic import BaseModel
 from uuid import UUID
 
-from rag_app.app.deps import get_answerer
-from rag_app.app.deps import get_retriever
+from rag_app.api.deps import get_answerer
+from rag_app.api.deps import get_retriever
 
 from rag_app.services.answerer import AnswerService
 from rag_app.services.retriever import RetrievalService

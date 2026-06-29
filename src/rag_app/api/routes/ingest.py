@@ -7,8 +7,8 @@ from uuid import uuid4
 from hashlib import sha256
 
 from rag_app.services.answerer import AnswerService
-from rag_app.app.deps import get_answerer
-from rag_app.app.deps import get_ingestor
+from rag_app.api.deps import get_answerer
+from rag_app.api.deps import get_ingestor
 from rag_app.services.ingestor import IngestionService
 from rag_app.stores.document_store import get_file_content_from_path
 

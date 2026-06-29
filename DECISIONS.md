@@ -143,3 +143,10 @@ Document
 
 No self-heal prefer Document dedup to self-heal = we store document and chunks without the vectors - try to store it again to get the vectors 
 we can't because of the dedup
+
+
+Docker 
+ - you need to set the LLM_API_KEY env var to enable generation
+
+Distribution model is "clone + build"
+The db bootstrap lives in lifespan of the api for v1 with Alembic it will be moved out.
