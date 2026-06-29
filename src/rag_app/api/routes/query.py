@@ -11,9 +11,6 @@ from rag_app.api.deps import get_retriever
 from rag_app.services.answerer import AnswerService
 from rag_app.services.retriever import RetrievalService
 
-from rag_app.stores.document_store import get_file_content_from_path
-from os.path import isfile
-
 router = APIRouter(prefix="/query")
 
 class DocumentResponse(BaseModel):
@@ -32,5 +29,4 @@ async def generate_answer(q: GenerateRequest, answerer: Annotated[AnswerService,
 @router.get("/documents/{doc_id}")
 async def get_document(doc_id: UUID, retriever: Annotated[RetrievalService, Depends(get_retriever)]) -> DocumentResponse:
     doc = await retriever.get_document(doc_id)
-    doc_content = await get_file_content_from_path(doc.path_raw_content)
-    return DocumentResponse(filename=doc.filename, content=doc_content, doc_id=doc.id, doc_metadata=doc.doc_metadata)
+    return DocumentResponse(filename=doc.filename, content=doc.content, doc_id=doc.id, doc_metadata=doc.doc_metadata)

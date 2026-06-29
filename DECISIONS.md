@@ -150,3 +150,11 @@ Docker
 
 Distribution model is "clone + build"
 The db bootstrap lives in lifespan of the api for v1 with Alembic it will be moved out.
+
+Ingest takes content from the request body (path→content redesign)
+ - documents are sent as content in the request body; the service no longer reads the filesystem
+ - a path, if relevant, is just optional metadata
+ - original content stored verbatim on the Document row (a `content` column), not reconstructed
+   from chunks: joining chunks duplicates the overlap region and drops boundary whitespace, so
+   it isn't faithful. Accepts storing content twice (row + chunks) for an exact, simple read.
+ - dropped the `aiofiles` dependency: nothing reads files anymore.

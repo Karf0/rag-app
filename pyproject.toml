@@ -14,7 +14,6 @@ dependencies = [
     # encode_document / encode_query methods - for some models neccessary - require sentence-transformers v5+
     "sentence-transformers>=5.0",
     "pydantic-settings>=2.0",
-    "aiofiles>=23.0",
 ]
 
 # Test-only deps. Already present in .venv but were undeclared; pin loosely so the suite is

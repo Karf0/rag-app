@@ -6,32 +6,34 @@ from typing import Annotated
 from uuid import uuid4
 from hashlib import sha256
 
-from rag_app.services.answerer import AnswerService
-from rag_app.api.deps import get_answerer
 from rag_app.api.deps import get_ingestor
 from rag_app.services.ingestor import IngestionService
-from rag_app.stores.document_store import get_file_content_from_path
 
 from rag_app.schemas import DocumentDTO
 
-# virtual document for v1
+
+# virtual document for v1. A path, if relevant, goes in metadata — the service no longer
+# reads from the filesystem; content arrives in the request body.
 class DocumentRequest(BaseModel):
     content: str
     filename: str
-    path: str
     metadata: dict = {}
+
 
 router = APIRouter(prefix="/ingest")
 
+
 @router.post("/store")
-async def store_document(document: DocumentRequest, ingestor: Annotated[IngestionService, Depends(get_ingestor)]):
-    doc_content = await get_file_content_from_path(document.path)
+async def store_document(
+    document: DocumentRequest,
+    ingestor: Annotated[IngestionService, Depends(get_ingestor)],
+):
     await ingestor.store_document(
         DocumentDTO(
             id=uuid4(),
             filename=document.filename,
-            path_raw_content=document.path,
-            content_hash=sha256(doc_content.encode()).hexdigest(),
+            content_hash=sha256(document.content.encode()).hexdigest(),
+            content=document.content,
             doc_metadata=document.metadata,
         )
     )
